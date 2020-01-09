@@ -37,9 +37,6 @@ http://data.gdeltproject.org/documentation/GDELT-Global_Knowledge_Graph_Codebook
 
 V2.1TRANSLATIONINFO.    (semicolon-delimited  fields)  This  field  is  used  to  record  provenance information  for  machine  translated  documents  indicating  the  original  source  language  and  the citation of the translation system used to translate the documentfor processing.  It will be blank for  documents  originally  in  English.
 
-## Field useful for our study
-
-<img src="dbschema.png"></img>
 
 # Fonctionnalités Nécessaire
 
@@ -48,36 +45,45 @@ V2.1TRANSLATIONINFO.    (semicolon-delimited  fields)  This  field  is  used  to
 Votre système doit être capable de:
  * afficher le nombre d’articles/évènements qu’il y a eu pour chaque triplet (jour, pays de l’évènement, langue de l’article).
     
+GKG table:
+
 >  Group By sur:
-> 
->  Event table:
->   - SQLDate (in Big query) Day (in doc): jour
->   - ActionGeo_ADM2Code: pays de l'évènement en code AMD2
->   - MentionDocTranslationInfo :  langue de l'article
->  GKG table:
+>   - DATE
+>   - V2Locations 
 >   - TRANSLATIONINFO : langue de l'article
-> 
-> Puis un count
+> Puis un count 
 
- * pour un acteur donné en paramètre, afficher les événements (valeurs de la table events) qui y font référence (dans les derniers 6 mois).
+ * pour un pays donné en paramètre, affichez les évènements qui y ont eu place triées par le nombre de mentions (tri décroissant); permettez une agrégation par jour/mois/année
+Event Table:
 
-> Afficher les events:
-> WHERE 
-> Event table:
->  - Actor1Name ou Actor2Name: acteur donné en paramètre
-> AND 
->  - MonthYear < 6 mois
+> SELECT GLOBALEVENTID 
+> WHERE Pays = Actor1Geo_ADM2Code 
+> GROUP BY: DATE
+> ORDER BY: NumMentions DESC
  
- * trouver les sujets (acteurs) qui ont eu le plus d’articles positifs/negatifs pour chaque triplet (mois, pays, langue de l’article).
 
-> Utilisation de la question 1 + 2 :
-> 
-> Event table:
->  - Action_AvgTone: positifs/negatifs > 10 ou < -10
->
-> Select acteur, count(event) where ( AvgTone > 10 OR < -10 ) GROUP BY acteur ORDER BY count DESC
+ * pour une source de donnés passée en paramètre (gkg.SourceCommonName) affichez les thèmes, personnes, lieux dont les articles de cette sources parlent ainsi que le le nombre d’articles et le ton moyen des articles (pour chaque thème/personne/lieu); permettez une agrégation par jour/mois/année.
 
- * trouver quels sont les acteurs/pays/organisations qui divisent le plus (par exemple ont eu une perception positive dans une partie du globe et une perception negative dans le rest du monde). Permettez une agrégation par jour/mois/annee.
+GKG table:
+
+> SELECT: 
+> V2Themes, V2Persons, V2Locations , V2Tone, Count
+> WHERE Source donné == SourceCommonName
+> GROUP BY Date
+
+ * dresser la cartographie des relations entre les pays d’après le ton des articles : pour chaque paire (pays1, pays2), calculer le nombre d’article, le ton moyen (aggrégations sur Année/Mois/Jour, filtrage par pays ou carré de coordonnées)
+
+GKG table:
+
+> SELECT TranslationInfo, V2Locations , V2Tone, Count 
+> GROUP BY Date
 
 
+## Reduction de la Base de donnée pour notre étude
+
+<img src="dbschema.png"></img>
+
+Les éléments de la table *event* et *eventmention* semblent être suffisant pour le cadre de notre étude.
+
+# Modelisation et choix de la Base de donnée
 
