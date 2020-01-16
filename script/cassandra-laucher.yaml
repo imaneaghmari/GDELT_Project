@@ -1,0 +1,18 @@
+---
+- hosts: localhost
+  remote_user: root
+  tasks: 
+    - name: Create EC2 Instance
+      command: | 
+       aws2 ec2 run-instances 
+       --region us-east-1 
+       --image-id ami-04b9e92b5572fa0d1 
+       --instance-type t2.micro 
+       --key-name gdeltKeyPair 
+       --count 1 
+      register: ec2_instance
+    
+    - name: Wait for Instance to be ready
+      command: aws2 ec2 wait instance-running --region us-east-1 --instance-ids "{{item.instanceid}}"
+      loop: "{{ ec2_instance.stdout['Instances'] }}"
+    
