@@ -169,10 +169,11 @@ Partition key ~
 Partition Key -> Pays 
 Clustering Key ->Nombre de mention DESC
 
+
 Aggregation par Date à voir Secondary Index ?
 
 <center>
-<img src="./Diagram/Logique/events_by_location.png"></img>
+<img src="./Diagram/Logique/event_by_location.png"></img>
 </center>
 
 3. Pour une source de donnés passée en paramètre (gkg.SourceCommonName) affichez les thèmes, personnes, lieux dont les articles de cette sources parlent ainsi que le le nombre d’articles et le ton moyen des articles (pour chaque thème/personne/lieu); permettez une agrégation par jour/mois/année. (Table GKG)
