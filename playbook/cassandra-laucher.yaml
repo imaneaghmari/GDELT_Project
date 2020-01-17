@@ -76,11 +76,11 @@
         sudo apt-get -y install docker-ce docker-ce-cli containerd.io
       loop: "{{ ec2_instances }}"
 
-    - name: docker start
-      command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
-        sudo service docker start
-      loop: "{{ ec2_instances }}"
+    # - name: docker start
+    #   command: |
+    #     ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
+    #     sudo service docker start
+    #   loop: "{{ ec2_instances }}"
     
 
     - name: docker run cassandra
