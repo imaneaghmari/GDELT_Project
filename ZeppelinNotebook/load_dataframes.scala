@@ -1,7 +1,7 @@
 val AWS_ID = ""
 val AWS_KEY = ""
 val AWS_TOKEN = ""
-val CLUSTER_NAME = ""
+val s3_name = ""
 
 sc.hadoopConfiguration.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider")
 sc.hadoopConfiguration.set("fs.s3a.access.key", AWS_ID) // mettre votre ID du fichier credentials.csv
@@ -16,7 +16,7 @@ import java.io.InputStreamReader
 // *** DOWNLOAD DATA ***
 
 // *** Events ***
-val textRDDEvents = sc.binaryFiles("s3://" + CLUSTER_NAME + "/2018120105*.export.CSV.zip").
+val textRDDEvents = sc.binaryFiles("s3://" + s3_name + "/2018120105*.export.CSV.zip").
    flatMap {  // decompresser les fichiers
        case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -29,7 +29,7 @@ val textRDDEvents = sc.binaryFiles("s3://" + CLUSTER_NAME + "/2018120105*.export
     }
 
 // *** Mentions ***
-val textRDDMentions = sc.binaryFiles("s3://" + CLUSTER_NAME + "/2018120105*.mentions.CSV.zip").
+val textRDDMentions = sc.binaryFiles("s3://" + s3_name + "/2018120105*.mentions.CSV.zip").
    flatMap {  // decompresser les fichiers
        case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -42,7 +42,7 @@ val textRDDMentions = sc.binaryFiles("s3://" + CLUSTER_NAME + "/2018120105*.ment
     }
 
 // *** Relation graph ***
-val textRDDRelations = sc.binaryFiles("s3://" + CLUSTER_NAME + "/2018120105*.gkg.csv.zip").
+val textRDDRelations = sc.binaryFiles("s3://" + s3_name + "/2018120105*.gkg.csv.zip").
    flatMap {  // decompresser les fichiers
        case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
