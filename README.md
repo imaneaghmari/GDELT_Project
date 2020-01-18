@@ -1,6 +1,19 @@
+# Table of Content
+- [GDELT PROJECT](#gdelt-project)
+  - [Goal of the project](#goal-of-the-project)
+  - [GDELT Database](https://www.gdeltproject.org/)
+    - [Event Table](#event-table)
+    - [Mention Table](#mention-table)
+    - [Global  Knowledge  Graph (GKG) Table](#global--knowledge--graph-gkg-table)
+- [How to run the project](#how-to-run-the-project)
+  - [Prerequisites](#prerequisites)
+  - [Creation of the cluster ](#creation-of-the-cluster)
+  - [Verification that the cluster is working correctly](#verification-that-the-cluster-is-working-correctly)
+  - [Connection to the database](#connection-to-the-database)
+    - [Quick test](#quick-test)
+
 # GDELT PROJECT
 
-[TOC]
 ## Goal of the project
 
 This Project was done in the context of the Post Master Degree in Big Data at Telecom Paris.
