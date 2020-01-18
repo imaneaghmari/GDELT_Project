@@ -1,3 +1,41 @@
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.input.PortableDataStream
+import org.apache.spark.sql.functions._
+import java.util.zip.ZipInputStream
+import java.io.BufferedReader
+import java.io.InputStreamReader
+
+import org.apache.spark.rdd.RDD
+
+object LoadDataFrames {
+
+  def main(args: Array[String]): Unit = {
+
+    // Des réglages optionnels du job spark. Les réglages par défaut fonctionnent très bien pour ce TP.
+    // On vous donne un exemple de setting quand même
+    val conf = new SparkConf().setAll(Map(
+      "spark.scheduler.mode" -> "FIFO",
+      "spark.speculation" -> "false",
+      "spark.reducer.maxSizeInFlight" -> "48m",
+      "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
+      "spark.kryoserializer.buffer.max" -> "1g",
+      "spark.shuffle.file.buffer" -> "32k",
+      "spark.default.parallelism" -> "12",
+      "spark.sql.shuffle.partitions" -> "12"
+    ))
+
+    // Initialisation du SparkSession qui est le point d'entrée vers Spark SQL (donne accès aux dataframes, aux RDD,
+    // création de tables temporaires, etc., et donc aux mécanismes de distribution des calculs)
+    val spark = SparkSession
+      .builder
+      .config(conf)
+      .appName("Projet Gdelt : Query 3")
+      .getOrCreate()
+
+    val sc = new SparkContext(conf)
+
+    import spark.implicits._
 val AWS_ID = ""
 val AWS_KEY = ""
 val AWS_TOKEN = ""
@@ -8,15 +46,12 @@ sc.hadoopConfiguration.set("fs.s3a.access.key", AWS_ID) // mettre votre ID du fi
 sc.hadoopConfiguration.set("fs.s3a.secret.key", AWS_KEY) // mettre votre secret du fichier credentials.csv
 sc.hadoopConfiguration.set("fs.s3a.session.token", AWS_TOKEN)
 
-import org.apache.spark.input.PortableDataStream
-import java.util.zip.ZipInputStream
-import java.io.BufferedReader
-import java.io.InputStreamReader
+
 
 // *** DOWNLOAD DATA ***
 
 // *** Events ***
-val textRDDEvents = sc.binaryFiles("s3://" + s3_name + "/2018120105*.export.CSV.zip").
+val textRDDEvents: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.export.CSV.zip").
    flatMap {  // decompresser les fichiers
        case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -29,7 +64,7 @@ val textRDDEvents = sc.binaryFiles("s3://" + s3_name + "/2018120105*.export.CSV.
     }
 
 // *** Mentions ***
-val textRDDMentions = sc.binaryFiles("s3://" + s3_name + "/2018120105*.mentions.CSV.zip").
+val textRDDMentions: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.mentions.CSV.zip").
    flatMap {  // decompresser les fichiers
        case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -42,7 +77,7 @@ val textRDDMentions = sc.binaryFiles("s3://" + s3_name + "/2018120105*.mentions.
     }
 
 // *** Relation graph ***
-val textRDDRelations = sc.binaryFiles("s3://" + s3_name + "/2018120105*.gkg.csv.zip").
+val textRDDRelations: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.gkg.csv.zip").
    flatMap {  // decompresser les fichiers
        case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -57,7 +92,7 @@ val textRDDRelations = sc.binaryFiles("s3://" + s3_name + "/2018120105*.gkg.csv.
 
 // EVENTS
 
-val dfEventsRenamed = textRDDEvents.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
+val dfEventsRenamed: DataFrame = textRDDEvents.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("Day", split($"value", "\\t").getItem(1))
 .withColumn("MonthYear", split($"value", "\\t").getItem(2))
 .withColumn("Year", split($"value", "\\t").getItem(3))
@@ -121,7 +156,7 @@ val dfEventsRenamed = textRDDEvents.toDF.withColumn("GLOBALEVENTID", split($"val
 .drop("value")
 
 // MENTIONS
-val dfMentionsRenamed = textRDDMentions.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
+val dfMentionsRenamed: DataFrame = textRDDMentions.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("EventTimeDate", split($"value", "\\t").getItem(1))
 .withColumn("MentionTimeDate", split($"value", "\\t").getItem(2))
@@ -141,7 +176,7 @@ val dfMentionsRenamed = textRDDMentions.toDF.withColumn("GLOBALEVENTID", split($
 .drop("value")
 
 // RELATION GRAPH
-val dfRelationsRenamed = textRDDRelations.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
+val dfRelationsRenamed: DataFrame = textRDDRelations.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("GKGRECORDID", split($"value", "\\t").getItem(0))
 .withColumn("DATE", split($"value", "\\t").getItem(1))
 .withColumn("SourceCollectionIdentifier", split($"value", "\\t").getItem(2))

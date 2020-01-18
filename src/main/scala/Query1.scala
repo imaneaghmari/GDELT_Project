@@ -1,6 +1,47 @@
-// ************* MENTIONS
+import org.apache.spark.{SparkConf, SparkContext, sql}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.functions._
+import org.apache.spark.input.PortableDataStream
+import java.util.zip.ZipInputStream
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
-val df_mentions_1 = spark.read.option("header", false).csv("data_req1/20150218230000.mentions.CSV")
+import org.apache.spark.rdd.RDD
+
+
+object Query1 {
+
+  def main(args: Array[String]): Unit = {
+
+    // Des réglages optionnels du job spark. Les réglages par défaut fonctionnent très bien pour ce TP.
+    // On vous donne un exemple de setting quand même
+    val conf = new SparkConf().setAll(Map(
+      "spark.scheduler.mode" -> "FIFO",
+      "spark.speculation" -> "false",
+      "spark.reducer.maxSizeInFlight" -> "48m",
+      "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
+      "spark.kryoserializer.buffer.max" -> "1g",
+      "spark.shuffle.file.buffer" -> "32k",
+      "spark.default.parallelism" -> "12",
+      "spark.sql.shuffle.partitions" -> "12"
+    ))
+
+    // Initialisation du SparkSession qui est le point d'entrée vers Spark SQL (donne accès aux dataframes, aux RDD,
+    // création de tables temporaires, etc., et donc aux mécanismes de distribution des calculs)
+    val spark = SparkSession
+      .builder
+      .config(conf)
+      .appName("Projet Gdelt : Query 3")
+      .getOrCreate()
+
+    val sc = new SparkContext(conf)
+
+    import spark.implicits._
+
+
+    // ************* MENTIONS
+
+val df_mentions_1: DataFrame = spark.read.option("header", false).csv("data_req1/20150218230000.mentions.CSV")
 .withColumnRenamed("_c0","value")
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("EventTimeDate", split($"value", "\\t").getItem(1))
@@ -21,7 +62,7 @@ val df_mentions_1 = spark.read.option("header", false).csv("data_req1/2015021823
 .drop("value")
 
 
-val df_mentions_1_t = spark.read.option("header", false).csv("data_req1/20150218230000.translation.mentions.CSV")
+val df_mentions_1_t: DataFrame = spark.read.option("header", false).csv("data_req1/20150218230000.translation.mentions.CSV")
 .withColumnRenamed("_c0","value")
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("EventTimeDate", split($"value", "\\t").getItem(1))
@@ -45,7 +86,7 @@ val df_mentions_1_t = spark.read.option("header", false).csv("data_req1/20150218
 
 // **************
 
-val df_mentions_2 = spark.read.option("header", false).csv("data_req1/20150224123000.mentions.CSV")
+val df_mentions_2: DataFrame = spark.read.option("header", false).csv("data_req1/20150224123000.mentions.CSV")
 .withColumnRenamed("_c0","value")
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("EventTimeDate", split($"value", "\\t").getItem(1))
@@ -65,7 +106,7 @@ val df_mentions_2 = spark.read.option("header", false).csv("data_req1/2015022412
 .withColumn("Extras", split($"value", "\\t").getItem(15))
 .drop("value")
 
-val df_mentions_2_t = spark.read.option("header", false).csv("data_req1/20150224123000.translation.mentions.CSV")
+val df_mentions_2_t: DataFrame = spark.read.option("header", false).csv("data_req1/20150224123000.translation.mentions.CSV")
 .withColumnRenamed("_c0","value")
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("EventTimeDate", split($"value", "\\t").getItem(1))
@@ -87,7 +128,7 @@ val df_mentions_2_t = spark.read.option("header", false).csv("data_req1/20150224
 
 // ************************** EVENTS
 
-val df_events_1 = spark.read.option("header", false).csv("data_req1/20150218230000.export.CSV").withColumn("joined_column",concat($"_c0",lit("\\t"),$"_c1",lit("\\t"),$"_c2",lit("\\t"),$"_c3",lit("\\t"),$"_c4")).withColumnRenamed("joined_column","value")
+val df_events_1: DataFrame = spark.read.option("header", false).csv("data_req1/20150218230000.export.CSV").withColumn("joined_column",concat($"_c0",lit("\\t"),$"_c1",lit("\\t"),$"_c2",lit("\\t"),$"_c3",lit("\\t"),$"_c4")).withColumnRenamed("joined_column","value")
 .select("value")
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("Day", split($"value", "\\t").getItem(1))
@@ -152,7 +193,7 @@ val df_events_1 = spark.read.option("header", false).csv("data_req1/201502182300
 .withColumn("SOURCEURL", split($"value", "\\t").getItem(60))
 .drop("value")
 
-val df_events_1_t = spark.read.option("header", false).csv("data_req1/20150218230000.translation.export.CSV")
+val df_events_1_t: DataFrame = spark.read.option("header", false).csv("data_req1/20150218230000.translation.export.CSV")
 .withColumn("joined_column",concat($"_c0",lit("\\t"),$"_c1",lit("\\t"),$"_c2",lit("\\t"),$"_c3",lit("\\t"),$"_c4"))
 .withColumnRenamed("joined_column","value")
 .select("value")
@@ -219,7 +260,7 @@ val df_events_1_t = spark.read.option("header", false).csv("data_req1/2015021823
 .withColumn("SOURCEURL", split($"value", "\\t").getItem(60))
 .drop("value")
 
-val df_events_2 = spark.read.option("header", false).csv("data_req1/20150224123000.export.CSV")
+val df_events_2: DataFrame = spark.read.option("header", false).csv("data_req1/20150224123000.export.CSV")
 .withColumnRenamed("_c0","value")
 .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
 .withColumn("Day", split($"value", "\\t").getItem(1))
@@ -284,7 +325,7 @@ val df_events_2 = spark.read.option("header", false).csv("data_req1/201502241230
 .withColumn("SOURCEURL", split($"value", "\\t").getItem(60))
 .drop("value")
 
-val df_events_2_t = spark.read.option("header", false).csv("data_req1/20150224123000.translation.export.CSV")
+val df_events_2_t: DataFrame = spark.read.option("header", false).csv("data_req1/20150224123000.translation.export.CSV")
 .withColumn("joined_column",concat($"_c0",lit("\\t"),$"_c1",lit("\\t"),$"_c2",lit("\\t"),$"_c3",lit("\\t"),$"_c4"))
 .withColumnRenamed("joined_column","value")
 .select("value")
