@@ -6,9 +6,11 @@ import java.util.zip.ZipInputStream
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import org.apache.spark.rdd.RDD
+import org.spark_project.dmg.pmml.True
 //Cassandra
-//import com.datastax.spark.connector.cql.CassandraConnector
-//import org.apache.spark.sql.cassandra._
+import com.datastax.spark.connector.cql.CassandraConnector
+import org.apache.spark.sql.cassandra._
+import com.datastax.spark.connector.writer.WriteConf
 
 
 object Query3 {
@@ -27,9 +29,9 @@ object Query3 {
       "spark.default.parallelism" -> "12",
       "spark.sql.shuffle.partitions" -> "12"
     ))
-//      .set("spark.cassandra.connection.host", "192.168.123.10")
-//      .set("spark.cassandra.auth.username", "cassandra")
-//      .set("spark.cassandra.auth.password", "cassandra")
+      .set("spark.cassandra.connection.host", "192.168.123.10")
+      .set("spark.cassandra.auth.username", "cassandra")
+      .set("spark.cassandra.auth.password", "cassandra")
 
 
     // Initialisation du SparkSession qui est le point d'entrée vers Spark SQL (donne accès aux dataframes, aux RDD,
@@ -110,41 +112,41 @@ object Query3 {
      * **********************************************************/
 
     val df_article_by_theme: DataFrame = dfgkg
-      .select("GKGRECORDID", "SourceCommonName", "Themes", "V2Tone", "DATE")
-      .withColumn("Theme", explode(split($"Themes", ";")))
-      .filter(!($"Theme".isNaN || $"Theme".isNull || $"Theme" === ""))
+      .select("GKGRECORDID", "source_common_name", "Themes", "V2Tone", "DATE")
+      .withColumn("theme", explode(split($"Themes", ";")))
+      .filter(!($"theme".isNaN || $"theme".isNull || $"theme" === ""))
       .withColumn("Tone", substring_index($"V2Tone", ",", 1))
-      .withColumn("Year", substring($"DATE", 0, 4))
-      .withColumn("Month", substring($"DATE", 5, 2))
-      .withColumn("Day", substring($"DATE", 7, 2))
-      .groupBy("SourceCommonName","Theme", "Year", "Month", "Day")
-      .agg(count($"GKGRECORDID").alias("NumberArticle"),
-        sum($"Tone").alias("SumTone"))
+      .withColumn("year", substring($"DATE", 0, 4))
+      .withColumn("month", substring($"DATE", 5, 2))
+      .withColumn("day", substring($"DATE", 7, 2))
+      .groupBy("source_common_name","theme", "year", "month", "day")
+      .agg(count($"GKGRECORDID").alias("num_article"),
+        sum($"tone").alias("sum_tone"))
 
-    val df_article_by_person = dfgkg
-      .select("GKGRECORDID", "SourceCommonName","Persons", "V2Tone", "DATE")
-      .withColumn("Person", explode(split($"Persons", ";")))
-      .filter(!($"Person".isNaN || $"Person".isNull || $"Person" === ""))
+    val df_article_by_person: DataFrame = dfgkg
+      .select("GKGRECORDID", "source_common_name","Persons", "V2Tone", "DATE")
+      .withColumn("person", explode(split($"Persons", ";")))
+      .filter(!($"person".isNaN || $"person".isNull || $"person" === ""))
       .withColumn("Tone", substring_index($"V2Tone", ",", 1))
-      .withColumn("Year", substring($"DATE", 0, 4))
-      .withColumn("Month", substring($"DATE", 5, 2))
-      .withColumn("Day", substring($"DATE", 7, 2))
-      .groupBy("SourceCommonName","Person", "Year", "Month", "Day")
-      .agg(count($"GKGRECORDID").alias("NumberArticle"),
-        sum($"Tone").alias("SumTone"))
+      .withColumn("year", substring($"DATE", 0, 4))
+      .withColumn("month", substring($"DATE", 5, 2))
+      .withColumn("day", substring($"DATE", 7, 2))
+      .groupBy("source_common_name","person", "year", "month", "day")
+      .agg(count($"GKGRECORDID").alias("num_article"),
+        sum($"tone").alias("sum_tone"))
 
-    val df_article_by_location = dfgkg
-      .select("GKGRECORDID", "SourceCommonName", "V2Locations", "V2Tone", "DATE")
+    val df_article_by_location: DataFrame = dfgkg
+      .select("GKGRECORDID", "source_common_name", "V2Locations", "V2Tone", "DATE")
       .withColumn("Locations", explode(split($"V2Locations", ";")))
       .filter(!($"Locations".isNaN || $"Locations".isNull || $"Locations" === ""))
-      .withColumn("Location", element_at(split($"Locations", "#"),2))
+      .withColumn("location", element_at(split($"Locations", "#"),2))
       .withColumn("Tone", substring_index($"V2Tone", ",", 1))
-      .withColumn("Year", substring($"DATE", 0, 4))
-      .withColumn("Month", substring($"DATE", 5, 2))
-      .withColumn("Day", substring($"DATE", 7, 2))
-      .groupBy("SourceCommonName","Location", "Year", "Month", "Day")
-      .agg(count($"GKGRECORDID").alias("NumberArticle"),
-        sum($"Tone").alias("SumTone"))
+      .withColumn("year", substring($"DATE", 0, 4))
+      .withColumn("month", substring($"DATE", 5, 2))
+      .withColumn("day", substring($"DATE", 7, 2))
+      .groupBy("source_common_name","location", "year", "month", "day")
+      .agg(count($"GKGRECORDID").alias("num_article"),
+        sum($"tone").alias("sum_tone"))
 
 
     /***********************************************************************************************
@@ -153,35 +155,79 @@ object Query3 {
     /**************************************
      * Creation of the KEYSPACE and Table
      **************************************/
-//    CassandraConnector(conf).withSessionDo { session =>
-//      session.execute(
-//        """
-//           CREATE KEYSPACE IF NOT EXISTS gdelt
-//           WITH REPLICATION =
-//           {'class': 'SimpleStrategy', 'replication_factor': 2 };
-//        """)
-//      session.execute(
-//        """
-//           CREATE TABLE article_by_theme (
-//              source_common_name text,
-//              year int,
-//              month int,
-//              day int,
-//              theme text,
-//              num_article int,
-//              sum_tone int,
-//              PRIMARY KEY (source_common_name, year, month, day, theme)
-//            );
-//        """
-//      )
-//    }
-//
-//    /*************************
-//     * Import of the data
-//     *************************/
-//    df_article_by_theme.write
-//      .cassandraFormat("article_by_theme", "gdelt", "cluster_B")
-//      .save()
-//
+    CassandraConnector(sc.getConf).withSessionDo { session =>
+      session.execute(
+        """
+           CREATE KEYSPACE IF NOT EXISTS gdelt
+           WITH REPLICATION =
+           {'class': 'SimpleStrategy', 'replication_factor': 2 };
+        """)
+      session.execute(
+        """
+           CREATE TABLE IF NOT EXISTS gdelt.article_by_theme (
+              source_common_name text,
+              year int,
+              month int,
+              day int,
+              theme text,
+              num_article int,
+              sum_tone int,
+              PRIMARY KEY (source_common_name, year, month, day, theme)
+            );
+        """
+      )
+      session.execute(
+        """
+          CREATE TABLE IF NOT EXISTS gdelt.article_by_person (
+              source_common_name text,
+              year int,
+              month int,
+              day int,
+              person text,
+              num_article int,
+              sum_tone int,
+              PRIMARY KEY (source_common_name, year, month, day, person)
+          );
+        """
+      )
+      session.execute(
+        """
+          CREATE TABLE IF NOT EXISTS gdelt.article_by_location (
+              source_common_name text,
+              year int,
+              month int,
+              day int,
+              person text,
+              num_article int,
+              sum_tone int,
+              PRIMARY KEY (source_common_name, year, month, day, person)
+          );
+        """
+      )
+    }
+
+    /*************************
+     * Import of the data
+     *************************/
+    df_article_by_theme.write
+      .cassandraFormat("article_by_theme", "gdelt", "gdelt-cluster")
+      .save()
+
+    df_article_by_person.write
+      .cassandraFormat("article_by_person", "gdelt", "gdelt-cluster")
+      .save()
+
+    df_article_by_location.write
+      .cassandraFormat("article_by_location", "gdelt", "gdelt-cluster")
+      .save()
+
+    /*****************
+     * Read Data
+     ***************/
+
+    val article_by_theme_test = spark.read
+      .cassandraFormat("article_by_theme", "gdelt", "cluster_B")
+      .load()
+
   }
 }
