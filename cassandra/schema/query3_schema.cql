@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS gdelt.article_by_location (
     year int,
     month int,
     day int,
-    person text,
+    location text,
     num_article int,
     sum_tone int,
-    PRIMARY KEY (source_common_name, year, month, day, person)
+    PRIMARY KEY (source_common_name, year, month, day, location)
 );
