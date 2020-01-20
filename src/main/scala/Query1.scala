@@ -204,7 +204,7 @@ object Query1 {
         """)
       session.execute(
         """
-           CREATE TABLE IF NOT EXISTS gdelt.query1 (
+           CREATE TABLE IF NOT EXISTS gdelt.event_by_day (
               date text,
               country text,
               language text,
@@ -216,11 +216,11 @@ object Query1 {
     }
 
     dfReordered.write
-      .cassandraFormat("query1", "gdelt")
+      .cassandraFormat("event_by_day", "gdelt")
       .save()
 
     val query1 = spark.read
-      .cassandraFormat("query1", "gdelt")
+      .cassandraFormat("event_by_day", "gdelt")
       .load()
 
   }
