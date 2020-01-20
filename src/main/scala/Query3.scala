@@ -81,7 +81,7 @@ object Query3 {
       .withColumn("GKGRECORDID", split($"value", "\\t").getItem(0))
       .withColumn("DATE", split($"value", "\\t").getItem(1))
       .withColumn("SourceCollectionIdentifier", split($"value", "\\t").getItem(2))
-      .withColumn("SourceCommonName", split($"value", "\\t").getItem(3))
+      .withColumn("source_common_name", split($"value", "\\t").getItem(3))
       .withColumn("DocumentIdentifier", split($"value", "\\t").getItem(4))
       .withColumn("Counts", split($"value", "\\t").getItem(5))
       .withColumn("V2Counts", split($"value", "\\t").getItem(6))
