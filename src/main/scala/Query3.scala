@@ -6,11 +6,12 @@ import java.util.zip.ZipInputStream
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import org.apache.spark.rdd.RDD
-import org.spark_project.dmg.pmml.True
+import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.auth.BasicSessionCredentials
+import java.io.File
 //Cassandra
 import com.datastax.spark.connector.cql.CassandraConnector
 import org.apache.spark.sql.cassandra._
-import com.datastax.spark.connector.writer.WriteConf
 
 
 object Query3 {
@@ -148,6 +149,30 @@ object Query3 {
       .agg(count($"GKGRECORDID").alias("num_article"),
         sum($"tone").alias("sum_tone"))
 
+
+    /***********************************
+     * Save Calculation in S3
+     ******************************/
+
+    @transient val awsClient = new AmazonS3Client(new BasicSessionCredentials(AWS_ID, AWS_KEY, AWS_TOKEN) )
+
+    df_article_by_theme
+      .write
+      .parquet("article_by_theme.parquet")
+
+    awsClient.putObject(s3_name, "article_by_theme.parquet", new File( "article_by_theme.parquet") )
+
+    df_article_by_person
+      .write
+      .parquet("article_by_person.parquet")
+
+    awsClient.putObject(s3_name, "article_by_theme.parquet", new File( "article_by_person.parquet") )
+
+    df_article_by_location
+      .write
+      .parquet("article_by_location.parquet")
+
+    awsClient.putObject(s3_name, "article_by_theme.parquet", new File( "article_by_location.parquet") )
 
     /***********************************************************************************************
      ************************** Import to Cassandra *********************************************
