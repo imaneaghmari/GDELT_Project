@@ -178,6 +178,7 @@ Aggregation par Date à voir Secondary Index ?
 
 3. Pour une source de donnés passée en paramètre (gkg.SourceCommonName) affichez les thèmes, personnes, lieux dont les articles de cette sources parlent ainsi que le le nombre d’articles et le ton moyen des articles (pour chaque thème/personne/lieu); permettez une agrégation par jour/mois/année. (Table GKG)
 
+For an input source (gkg.SourceCommonName), display themes, persons, locations, that are mentions in this article source. You will also display the number of article and the average tone for each theme/person and location. A aggregation on day, month and year should be possible.
 
  !!! Partition key fausse
 2 Tables 

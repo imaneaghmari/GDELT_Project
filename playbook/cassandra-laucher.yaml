@@ -11,12 +11,12 @@
     # CREATE EC2 INSANCES
     ########################
     - name: Create EC2 Instance
-      command: | 
-       aws2 ec2 run-instances 
-       --region us-east-1 
-       --image-id ami-04b9e92b5572fa0d1 
-       --instance-type t2.large 
-       --key-name "{{aws_key_name}}" 
+      command: |
+       aws2 ec2 run-instances
+       --region us-east-1
+       --image-id ami-04b9e92b5572fa0d1
+       --instance-type t2.large
+       --key-name "{{aws_key_name}}"
        --count "{{count}}"
        --security-groups "{{security_group_name}}"
       register: output_create
@@ -44,7 +44,7 @@
     #####################
     - name: apt update
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
+        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
         sudo apt-get -y update
       loop: "{{ ec2_instances }}"
 
@@ -93,25 +93,27 @@
     - name: docker run cassandra seed
       command: |
         ssh -i "{{ path_pem }}" ubuntu@"{{last_instance.PublicDnsName}}"
-        sudo docker run 
-        --name cassandra-gdelt 
+        sudo docker run
+        --name cassandra-gdelt
         -d -e CASSANDRA_BROADCAST_ADDRESS="{{last_instance.PrivateIpAddress}}"
+        -e CASSANDRA_CLUSTER_NAME=gdelt-cluster
         -p 7000:7000 -p 9042:9042
         cassandra:latest
 
     - name: docker run cassandra not-seed
       command: |
         ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
-        sudo docker run 
-        --name cassandra-gdelt 
-        -d -e CASSANDRA_BROADCAST_ADDRESS="{{item.PrivateIpAddress}}" 
-        -e CASSANDRA_SEEDS="{{last_instance.PrivateIpAddress}}" 
+        sudo docker run
+        --name cassandra-gdelt
+        -d -e CASSANDRA_BROADCAST_ADDRESS="{{item.PrivateIpAddress}}"
+        -e CASSANDRA_SEEDS="{{last_instance.PrivateIpAddress}}"
+        -e CASSANDRA_CLUSTER_NAME=gdelt-cluster
         -p 7000:7000 -p 9042:9042
         cassandra:latest
       loop: "{{ec2_instances}}"
       when: item.InstanceId != last_instance.InstanceId
       loop_control:
-        pause: 120 
-        
+        pause: 120
+
       # 2 minute wait rule for gossip state to propagate before a node is added
     
