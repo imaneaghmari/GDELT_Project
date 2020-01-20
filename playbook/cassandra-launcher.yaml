@@ -11,26 +11,27 @@
     # CREATE EC2 INSANCES
     ########################
     - name: Create EC2 Instance
-      command: |
-       aws2 ec2 run-instances
-       --region us-east-1
+      command: | 
+       aws2 ec2 run-instances 
+       --region us-east-1 
        --image-id ami-04b9e92b5572fa0d1
-       --instance-type t2.large
-       --key-name "{{aws_key_name}}"
+       --instance-type t2.large 
+       --key-name "{{aws_key_name}}" 
        --count "{{count}}"
        --security-groups "{{security_group_name}}"
+       --output json
       register: output_create
 
     - name: Retrieve instance information
       set_fact:
-        ec2_start_info: "{{ output_create.stdout | from_json }}"
+        ec2_start_info: "{{output_create.stdout|from_json}}"
 
     - name: Wait for Instance to be ready
       command: aws2 ec2 wait instance-status-ok --region us-east-1 --instance-ids "{{item.InstanceId}}"
       loop: "{{ ec2_start_info.Instances }}"
 
     - name: Get DNSAdress
-      command: aws2 ec2 describe-instances --instance-ids "{{ ec2_start_info.Instances | map(attribute='InstanceId') | join('" "')}}"
+      command: aws2 ec2 describe-instances --instance-ids "{{ ec2_start_info.Instances | map(attribute='InstanceId') | join('" "')}}" --output json
       register: output_dns
     
     - set_fact:
@@ -44,13 +45,15 @@
     #####################
     - name: apt update
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
         sudo apt-get -y update
       loop: "{{ ec2_instances }}"
 
     - name: Docker pre-instalation
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
+        ssh -o StrictHostKeyChecking=no
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
         sudo apt-get -y install apt-transport-https 
         ca-certificates 
         curl 
@@ -61,25 +64,29 @@
 
     - name: add-apt-repository
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
         'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"'
       loop: "{{ ec2_instances }}"  
 
     - name: apt update
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
         sudo apt-get -y update
       loop: "{{ ec2_instances }}"
 
     - name: docker install
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
         sudo apt-get -y install docker-ce docker-ce-cli containerd.io
       loop: "{{ ec2_instances }}"
 
     - name: docker start
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
         sudo service docker start
       loop: "{{ ec2_instances }}"
 
@@ -92,28 +99,28 @@
 
     - name: docker run cassandra seed
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{last_instance.PublicDnsName}}"
-        sudo docker run
-        --name cassandra-gdelt
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{last_instance.PublicDnsName}}"
+        sudo docker run 
+        --name cassandra-gdelt 
         -d -e CASSANDRA_BROADCAST_ADDRESS="{{last_instance.PrivateIpAddress}}"
-        -e CASSANDRA_CLUSTER_NAME=gdelt-cluster
         -p 7000:7000 -p 9042:9042
         cassandra:latest
 
     - name: docker run cassandra not-seed
       command: |
-        ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
-        sudo docker run
-        --name cassandra-gdelt
-        -d -e CASSANDRA_BROADCAST_ADDRESS="{{item.PrivateIpAddress}}"
-        -e CASSANDRA_SEEDS="{{last_instance.PrivateIpAddress}}"
-        -e CASSANDRA_CLUSTER_NAME=gdelt-cluster
+        ssh -o StrictHostKeyChecking=no 
+        -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}"
+        sudo docker run 
+        --name cassandra-gdelt 
+        -d -e CASSANDRA_BROADCAST_ADDRESS="{{item.PrivateIpAddress}}" 
+        -e CASSANDRA_SEEDS="{{last_instance.PrivateIpAddress}}" 
         -p 7000:7000 -p 9042:9042
         cassandra:latest
       loop: "{{ec2_instances}}"
       when: item.InstanceId != last_instance.InstanceId
       loop_control:
-        pause: 120
-
+        pause: 120 
+        
       # 2 minute wait rule for gossip state to propagate before a node is added
     
