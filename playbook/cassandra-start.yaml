@@ -1,0 +1,40 @@
+---
+- hosts: localhost
+    vars:
+    path_pem: "{{ lookup('ini', 'path_pem section=local file=ansible.ini') }}" # path to your *.pem key enabling the creation of the cluster
+    aws_key_name: "{{ lookup('ini', 'aws_key_name section=aws file=ansible.ini') }}" # name of your key in aws
+    remote_user: root
+    tasks:
+    - name: Get Information Instances
+        command: aws2 ec2 describe-instances --filters Name=key-name,Values="{{aws_key_name}}" Name=instance-state-name,Values=stopped
+        register: output_dns
+
+    - set_fact:
+        output_json: "{{ output_dns.stdout | from_json }}"
+    
+    - set_fact:
+        ec2_instances_stop: "{{output_json.Reservations[0].Instances}}"
+
+    - name: Instances start
+        command: aws2 start-instances --instance-ids "{{item.InstanceId}}"
+        loop: "{{ ec2_instances_stop }}"  
+
+    - name: Wait for Instance to be ready
+      command: aws2 ec2 wait instance-status-ok --region us-east-1 --instance-ids "{{item.InstanceId}}"
+      loop: "{{ ec2_start_info.Instances }}"
+
+    - name: Get DNSAdress
+      command: aws2 ec2 describe-instances --instance-ids "{{ ec2_start_info.Instances | map(attribute='InstanceId') | join('" "')}}"
+      register: output_dns
+    
+    - set_fact:
+        dns_output_json: "{{ output_dns.stdout | from_json }}"
+    
+    - set_fact:
+        ec2_instances: "{{dns_output_json.Reservations[0].Instances}}"
+    
+    - name: Docker start
+        command: |
+          ssh -i "{{ path_pem }}" ubuntu@"{{item.PublicDnsName}}" 
+          sudo docker start cassandra-gdelt
+        loop: "{{ ec2_instances }}"  
