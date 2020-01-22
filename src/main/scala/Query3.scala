@@ -6,9 +6,6 @@ import java.util.zip.ZipInputStream
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import org.apache.spark.rdd.RDD
-import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.auth.BasicSessionCredentials
-import java.io.File
 //Cassandra
 import com.datastax.spark.connector.cql.CassandraConnector
 import org.apache.spark.sql.cassandra._
@@ -56,6 +53,7 @@ object Query3 {
     sc.hadoopConfiguration.set("fs.s3a.access.key", AWS_ID) // mettre votre ID du fichier credentials.csv
     sc.hadoopConfiguration.set("fs.s3a.secret.key", AWS_KEY) // mettre votre secret du fichier credentials.csv
     sc.hadoopConfiguration.set("fs.s3a.session.token", AWS_TOKEN)
+    sc.hadoopConfiguration.setInt("fs.s3.maxConnections", 1000)
 
     /** **************************************
      * Charger un fichier csv dans un rdd depuis s3
@@ -66,7 +64,8 @@ object Query3 {
         case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
           Stream.continually(zis.getNextEntry).
-            takeWhile(_ != null).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
             flatMap { _ =>
               val br = new BufferedReader(new InputStreamReader(zis))
               Stream.continually(br.readLine()).takeWhile(_ != null)
@@ -154,25 +153,21 @@ object Query3 {
      * Save Calculation in S3
      ******************************/
 
-    @transient val awsClient = new AmazonS3Client(new BasicSessionCredentials(AWS_ID, AWS_KEY, AWS_TOKEN) )
-
     df_article_by_theme
       .write
-      .parquet("article_by_theme.parquet")
-
-    awsClient.putObject(s3_name, "article_by_theme.parquet", new File( "article_by_theme.parquet") )
+      .mode(SaveMode.Overwrite)
+      .parquet("s3://" + s3_name + "/article_by_theme.parquet/")
 
     df_article_by_person
       .write
-      .parquet("article_by_person.parquet")
-
-    awsClient.putObject(s3_name, "article_by_theme.parquet", new File( "article_by_person.parquet") )
+      .mode(SaveMode.Overwrite)
+      .parquet("s3://" + s3_name + "/article_by_person.parquet/")
 
     df_article_by_location
       .write
-      .parquet("article_by_location.parquet")
+      .mode(SaveMode.Overwrite)
+      .parquet("s3://" + s3_name + "/article_by_location.parquet/")
 
-    awsClient.putObject(s3_name, "article_by_theme.parquet", new File( "article_by_location.parquet") )
 
     /***********************************************************************************************
      ************************** Import to Cassandra *********************************************
@@ -235,15 +230,15 @@ object Query3 {
      * Import of the data
      *************************/
     df_article_by_theme.write
-      .cassandraFormat("article_by_theme", "gdelt", "gdelt-cluster")
+      .cassandraFormat("article_by_theme", "gdelt")
       .save()
 
     df_article_by_person.write
-      .cassandraFormat("article_by_person", "gdelt", "gdelt-cluster")
+      .cassandraFormat("article_by_person", "gdelt")
       .save()
 
     df_article_by_location.write
-      .cassandraFormat("article_by_location", "gdelt", "gdelt-cluster")
+      .cassandraFormat("article_by_location", "gdelt")
       .save()
 
     /*****************
@@ -251,7 +246,7 @@ object Query3 {
      ***************/
 
     val article_by_theme_test = spark.read
-      .cassandraFormat("article_by_theme", "gdelt", "cluster_B")
+      .cassandraFormat("article_by_theme", "gdelt")
       .load()
 
   }
