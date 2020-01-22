@@ -66,7 +66,8 @@ object Query2 {
         case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
           Stream.continually(zis.getNextEntry).
-            takeWhile(_ != null).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
             flatMap { _ =>
               val br = new BufferedReader(new InputStreamReader(zis))
               Stream.continually(br.readLine()).takeWhile(_ != null)
@@ -79,7 +80,8 @@ object Query2 {
         case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
           Stream.continually(zis.getNextEntry).
-            takeWhile(_ != null).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
             flatMap { _ =>
               val br = new BufferedReader(new InputStreamReader(zis))
               Stream.continually(br.readLine()).takeWhile(_ != null)
@@ -202,7 +204,7 @@ object Query2 {
       .write
       .mode(SaveMode.Overwrite)
       .parquet("s3://" + s3_name + "/dfPays_Events.parquet/")
-    ***/
+     ***/
 
 
     /***********************************************************************************************
