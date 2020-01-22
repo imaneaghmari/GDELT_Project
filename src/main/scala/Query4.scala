@@ -13,7 +13,7 @@ import java.io.File
 import com.datastax.spark.connector.cql.CassandraConnector
 import org.apache.spark.sql.cassandra._
 
-object Query1 {
+object Query4 {
 
   def main(args: Array[String]): Unit = {
 
@@ -31,12 +31,13 @@ object Query1 {
     ))
       .set("spark.cassandra.connection.host", "192.168.123.10")
 
+
     // Initialisation du SparkSession qui est le point d'entrée vers Spark SQL (donne accès aux dataframes, aux RDD,
     // création de tables temporaires, etc., et donc aux mécanismes de distribution des calculs)
     val spark = SparkSession
       .builder
       .config(conf)
-      .appName("Projet Gdelt : Query 1")
+      .appName("Projet Gdelt : Query 3")
       .getOrCreate()
 
     val sc = new SparkContext(conf)
@@ -46,15 +47,53 @@ object Query1 {
     val AWS_ID = "TODO"
     val AWS_KEY = "TODO"
     val AWS_TOKEN = "TODO"
-    val s3_name = "TODO"
+    val s3_name = "projet-gdelt-2019"
 
     sc.hadoopConfiguration.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider")
     sc.hadoopConfiguration.set("fs.s3a.access.key", AWS_ID) // mettre votre ID du fichier credentials.csv
     sc.hadoopConfiguration.set("fs.s3a.secret.key", AWS_KEY) // mettre votre secret du fichier credentials.csv
     sc.hadoopConfiguration.set("fs.s3a.session.token", AWS_TOKEN)
+    sc.hadoopConfiguration.setInt("fs.s3.maxConnections", 1000)
 
+    /** **************************************
+     * Charger un fichier csv.zip dans un rdd depuis s3
+     * ********************************************/
 
-    val dfEventsRenamed: DataFrame = textRDDEvents.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
+    // *** Events ***
+    val textRDDEvents: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.export.CSV.zip").
+      flatMap { // decompresser les fichiers
+        case (name: String, content: PortableDataStream) =>
+          val zis = new ZipInputStream(content.open)
+          Stream.continually(zis.getNextEntry).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
+            flatMap { _ =>
+              val br = new BufferedReader(new InputStreamReader(zis))
+              Stream.continually(br.readLine()).takeWhile(_ != null)
+            }
+      }
+
+    // *** Mentions ***
+    val textRDDMentions: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.mentions.CSV.zip").
+      flatMap { // decompresser les fichiers
+        case (name: String, content: PortableDataStream) =>
+          val zis = new ZipInputStream(content.open)
+          Stream.continually(zis.getNextEntry).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
+            flatMap { _ =>
+              val br = new BufferedReader(new InputStreamReader(zis))
+              Stream.continually(br.readLine()).takeWhile(_ != null)
+            }
+      }
+
+    /** ************************************************************
+     * Ajout des informations colonnes et creation d'un Dataframe
+     * ************************************************************* */
+
+    // *** Events ***
+    val dfEvents: DataFrame = textRDDEvents.toDF
+      .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
       .withColumn("Day", split($"value", "\\t").getItem(1))
       .withColumn("MonthYear", split($"value", "\\t").getItem(2))
       .withColumn("Year", split($"value", "\\t").getItem(3))
@@ -117,8 +156,8 @@ object Query1 {
       .withColumn("SOURCEURL", split($"value", "\\t").getItem(60))
       .drop("value")
 
-    // MENTIONS
-    val dfMentionsRenamed: DataFrame = textRDDMentions.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
+    // *** Mentions ***
+    val dfMentions: DataFrame = textRDDMentions.toDF
       .withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
       .withColumn("EventTimeDate", split($"value", "\\t").getItem(1))
       .withColumn("MentionTimeDate", split($"value", "\\t").getItem(2))
@@ -137,91 +176,73 @@ object Query1 {
       .withColumn("Extras", split($"value", "\\t").getItem(15))
       .drop("value")
 
-    // RELATION GRAPH
-    val dfRelationsRenamed: DataFrame = textRDDRelations.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
-      .withColumn("GKGRECORDID", split($"value", "\\t").getItem(0))
-      .withColumn("DATE", split($"value", "\\t").getItem(1))
-      .withColumn("SourceCollectionIdentifier", split($"value", "\\t").getItem(2))
-      .withColumn("SourceCommonName", split($"value", "\\t").getItem(3))
-      .withColumn("DocumentIdentifier", split($"value", "\\t").getItem(4))
-      .withColumn("Counts", split($"value", "\\t").getItem(5))
-      .withColumn("V2Counts", split($"value", "\\t").getItem(6))
-      .withColumn("Themes", split($"value", "\\t").getItem(7))
-      .withColumn("V2Themes", split($"value", "\\t").getItem(8))
-      .withColumn("Locations", split($"value", "\\t").getItem(9))
-      .withColumn("V2Locations", split($"value", "\\t").getItem(10))
-      .withColumn("Persons", split($"value", "\\t").getItem(11))
-      .withColumn("V2Persons", split($"value", "\\t").getItem(12))
-      .withColumn("Organizations", split($"value", "\\t").getItem(13))
-      .withColumn("V2Organizations", split($"value", "\\t").getItem(14))
-      .withColumn("V2Tone", split($"value", "\\t").getItem(15))
-      .withColumn("Dates", split($"value", "\\t").getItem(16))
-      .withColumn("GCAM", split($"value", "\\t").getItem(17))
-      .withColumn("SharingImage", split($"value", "\\t").getItem(18))
-      .withColumn("RelatedImages", split($"value", "\\t").getItem(19))
-      .withColumn("SocialImageEmbeds", split($"value", "\\t").getItem(20))
-      .withColumn("SocialVideoEmbeds", split($"value", "\\t").getItem(21))
-      .withColumn("Quotations", split($"value", "\\t").getItem(22))
-      .withColumn("AllNames", split($"value", "\\t").getItem(23))
-      .withColumn("Amounts", split($"value", "\\t").getItem(24))
-      .withColumn("TranslationInfo", split($"value", "\\t").getItem(25))
-      .withColumn("Extras", split($"value", "\\t").getItem(26))
-      .drop("value")
+    /** ******************************************************
+     * Creation of dataframes that will be inserted in Cassandra
+     * **********************************************************/
 
-    val dfEventsForJoin = dfEventsRenamed.select("GLOBALEVENTID","DAY","Actor1CountryCode")
-    val dfMentionsForJoin = dfMentionsRenamed.select("GLOBALEVENTID","MentionDocTranslationInfo")
+    val df_country_map = dfEvents
+      .select("GLOBALEVENTID", "Day", "ActionGeo_CountryCode") //"ActionGeo_Lat", "ActionGeo_Long"
+      .filter(!($"ActionGeo_CountryCode".isNaN || $"ActionGeo_CountryCode".isNull || $"ActionGeo_CountryCode" === ""))
+      .join(
+        dfMentions
+          .select("GLOBALEVENTID", "MentionDocTone", "MentionDocTranslationInfo"), "GLOBALEVENTID")
+      .filter(!($"MentionDocTranslationInfo".isNaN || $"MentionDocTranslationInfo".isNull || $"MentionDocTranslationInfo" === ""))
+      .withColumn("translation_info", substring($"MentionDocTranslationInfo", 7, 3))
+      .groupBy("Day", "ActionGeo_CountryCode", "translation_info") //"ActionGeo_Lat", "ActionGeo_Long"
+      .agg(
+        count("GLOBALEVENTID").alias("num_article"),
+        sum("MentionDocTone").alias("average_tone"))
+      .withColumn("average_tone", round($"average_tone".cast("float")))
+      .withColumn("year", substring($"Day", 0, 4))
+      .withColumn("month", substring($"Day", 5, 2))
+      .withColumn("day", substring($"Day", 7, 2))
+      .withColumnRenamed("ActionGeo_CountryCode", "country_code")
 
-    val dfJoin = dfEventsForJoin.join(dfMentionsForJoin, Seq("GLOBALEVENTID"))
+    /***********************************
+     * Save Calculation in S3
+     ******************************/
+    df_country_map
+      .write
+      .mode(SaveMode.Overwrite)
+      .parquet("s3://" + s3_name + "/df_country_map.parquet/")
 
-    val dfGroup = dfJoin
-      .groupBy("DAY", "Actor1CountryCode", "MentionDocTranslationInfo")
-      .agg(count("GLOBALEVENTID").alias("count_events"))
-      .withColumnRenamed("DAY","date")
-      .withColumnRenamed("Actor1CountryCode", "country")
-      .withColumnRenamed("MentionDocTranslationInfo", "language_0")
-
-    def preprocessLanguages(s: String): String = {
-      if(s == "") {
-        "eng"
-      } else {
-        s.split(";")(0).split(":")(1)
-      }
-    }
-
-    val preprocessLanguagesUDF = udf(preprocessLanguages _)
-
-    val dfLanguagePreproc = dfGroup.withColumn("language", preprocessLanguagesUDF($"language_0")).drop("language_0")
-
-    val reorderedColumnNames = Array("date","country","language","count_events")
-    val dfReordered = dfLanguagePreproc.select(reorderedColumnNames.head, reorderedColumnNames.tail: _*)
+    /***********************************************************************************************
+     ************************** Import to Cassandra *********************************************
+     ******************************************************************************************/
+    /**************************************
+     * Creation of the KEYSPACE and Table
+     **************************************/
 
     CassandraConnector(sc.getConf).withSessionDo { session =>
       session.execute(
         """
-           CREATE KEYSPACE IF NOT EXISTS gdelt
-           WITH REPLICATION =
-           {'class': 'SimpleStrategy', 'replication_factor': 2 };
-        """)
+       CREATE KEYSPACE IF NOT EXISTS gdelt
+       WITH REPLICATION =
+       {'class': 'SimpleStrategy', 'replication_factor': 2 };
+        """
+      )
       session.execute(
         """
-           CREATE TABLE IF NOT EXISTS gdelt.event_by_day (
-              date text,
-              country text,
-              language text,
-              count_events int,
-              PRIMARY KEY (date, country, language)
-            );
+        CREATE TABLE IF NOT EXISTS gdelt.country_map (
+            country_code text,
+            translation_info text,
+            year int,
+            month int,
+            date int,
+            num_article int,
+            sum_tone float,
+            PRIMARY KEY ((translation_info, country_code), year, month, day)
+        );
         """
       )
     }
 
-    dfReordered.write
-      .cassandraFormat("event_by_day", "gdelt")
+    /*************************
+     * Import of the data
+     *************************/
+
+    df_country_map.write
+      .cassandraFormat("country_map", "gdelt")
       .save()
-
-    val query1 = spark.read
-      .cassandraFormat("event_by_day", "gdelt")
-      .load()
-
   }
 }
