@@ -186,6 +186,8 @@ object Query2 {
       .groupBy("ActionGeo_CountryCode","GLOBALEVENTID","year", "month", "day")
       .agg(count($"GLOBALEVENTID").alias("num_mentions"))
       .orderBy($"num_mentions".desc)
+      .withColumnRenamed("ActionGeo_CountryCode","country")
+      .withColumnRenamed("GLOBALEVENTID","event")
 
 
     /***********************************
@@ -195,11 +197,12 @@ object Query2 {
     @transient val awsClient = new AmazonS3Client(new BasicSessionCredentials(AWS_ID, AWS_KEY, AWS_TOKEN) )
 
 
-
+    /***
     df_country_events
       .write
       .mode(SaveMode.Overwrite)
       .parquet("s3://" + s3_name + "/dfPays_Events.parquet/")
+    ***/
 
 
     /***********************************************************************************************
@@ -218,13 +221,13 @@ object Query2 {
       session.execute(
         """
            CREATE TABLE IF NOT EXISTS gdelt.country_events (
-              GLOBALEVENTID int,
-              ActionGeo_CountryCode text,
+              event int,
+              country text,
               year int,
               month int,
               day int,
               num_mentions int,
-              PRIMARY KEY (GLOBALEVENTID, year, month, day, num_mentions)
+              PRIMARY KEY (event, year, month, day, num_mentions)
             );
         """
       )
@@ -234,7 +237,7 @@ object Query2 {
      * Import of the data
      *************************/
     df_country_events.write
-      .cassandraFormat("country_events", "gdelt", "gdelt-cluster")
+      .cassandraFormat("country_events", "gdelt")
       .save()
 
   }
