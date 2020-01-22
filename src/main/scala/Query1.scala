@@ -53,7 +53,37 @@ object Query1 {
     sc.hadoopConfiguration.set("fs.s3a.secret.key", AWS_KEY) // mettre votre secret du fichier credentials.csv
     sc.hadoopConfiguration.set("fs.s3a.session.token", AWS_TOKEN)
 
+    // *** DOWNLOAD DATA ***
 
+    // *** Events ***
+    val textRDDEvents: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/20191201*.export.CSV.zip").
+      flatMap {  // decompresser les fichiers
+        case (name: String, content: PortableDataStream) =>
+          val zis = new ZipInputStream(content.open)
+          Stream.continually(zis.getNextEntry).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
+            flatMap { _ =>
+              val br = new BufferedReader(new InputStreamReader(zis))
+              Stream.continually(br.readLine()).takeWhile(_ != null)
+            }
+      }
+
+    // *** Mentions ***
+    val textRDDMentions: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/20191201*.mentions.CSV.zip").
+      flatMap {  // decompresser les fichiers
+        case (name: String, content: PortableDataStream) =>
+          val zis = new ZipInputStream(content.open)
+          Stream.continually(zis.getNextEntry).
+            takeWhile{ case null => zis.close(); false
+            case _ => true }.
+            flatMap { _ =>
+              val br = new BufferedReader(new InputStreamReader(zis))
+              Stream.continually(br.readLine()).takeWhile(_ != null)
+            }
+      }
+
+    // EVENTS
     val dfEventsRenamed: DataFrame = textRDDEvents.toDF.withColumn("GLOBALEVENTID", split($"value", "\\t").getItem(0))
       .withColumn("Day", split($"value", "\\t").getItem(1))
       .withColumn("MonthYear", split($"value", "\\t").getItem(2))
