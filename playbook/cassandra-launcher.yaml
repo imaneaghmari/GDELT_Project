@@ -104,6 +104,8 @@
         sudo docker run 
         --name cassandra-gdelt 
         -d -e CASSANDRA_BROADCAST_ADDRESS="{{last_instance.PrivateIpAddress}}"
+        -e CASSANDRA_ENDPOINT_SNITCH=Ec2Snitch
+        -e CASSANDRA_CLUSTER_NAME=gdelt-cluster
         -p 7000:7000 -p 9042:9042
         cassandra:latest
 
@@ -115,6 +117,8 @@
         --name cassandra-gdelt 
         -d -e CASSANDRA_BROADCAST_ADDRESS="{{item.PrivateIpAddress}}" 
         -e CASSANDRA_SEEDS="{{last_instance.PrivateIpAddress}}" 
+        -e CASSANDRA_ENDPOINT_SNITCH=Ec2Snitch
+        -e CASSANDRA_CLUSTER_NAME=gdelt-cluster
         -p 7000:7000 -p 9042:9042
         cassandra:latest
       loop: "{{ec2_instances}}"
