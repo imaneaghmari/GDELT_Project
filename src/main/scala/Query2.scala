@@ -61,7 +61,7 @@ object Query2 {
      * Charger un fichier csv dans un rdd depuis s3
      * ********************************************/
 
-    val textRDDEvents: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.export.CSV.zip").
+    val textRDDEvents: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/201901*.export.CSV.zip").
       flatMap { // decompresser les fichiers
         case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -75,7 +75,7 @@ object Query2 {
       }
 
     // *** Mentions ***
-    val textRDDMentions: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/2018120105*.mentions.CSV.zip").
+    val textRDDMentions: RDD[String] = sc.binaryFiles("s3://" + s3_name + "/201901*.mentions.CSV.zip").
       flatMap { // decompresser les fichiers
         case (name: String, content: PortableDataStream) =>
           val zis = new ZipInputStream(content.open)
@@ -181,16 +181,15 @@ object Query2 {
     val df_country_events = dfEvents.select("GLOBALEVENTID","ActionGeo_CountryCode", "Day")
       .filter(!($"ActionGeo_CountryCode".isNaN || $"ActionGeo_CountryCode".isNull || $"ActionGeo_CountryCode" === ""))
       .join(
-        dfMentions.select("GLOBALEVENTID"), "GLOBALEVENTID")
+        dfMentions.select("MentionIdentifier","GLOBALEVENTID" ), "GLOBALEVENTID")
       .withColumn("year", substring($"Day", 0, 4))
       .withColumn("month", substring($"Day", 5, 2))
       .withColumn("day", substring($"Day", 7, 2))
       .groupBy("ActionGeo_CountryCode","GLOBALEVENTID","year", "month", "day")
-      .agg(count($"GLOBALEVENTID").alias("num_mentions"))
+      .agg(count($"MentionIdentifier").alias("num_mentions"))
       .orderBy($"num_mentions".desc)
       .withColumnRenamed("ActionGeo_CountryCode","country")
       .withColumnRenamed("GLOBALEVENTID","event")
-
 
     /***********************************
      * Save Calculation in S3
@@ -223,13 +222,13 @@ object Query2 {
       session.execute(
         """
            CREATE TABLE IF NOT EXISTS gdelt.country_events (
-              event int,
               country text,
               year int,
               month int,
               day int,
+              event int,
               num_mentions int,
-              PRIMARY KEY (event, year, month, day, num_mentions)
+              PRIMARY KEY (country, year, month, day, event, num_mentions)
             );
         """
       )
