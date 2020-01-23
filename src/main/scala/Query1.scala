@@ -198,8 +198,9 @@ object Query1 {
       session.execute(
         """
            CREATE KEYSPACE IF NOT EXISTS gdelt
-           WITH REPLICATION =
-           {'class': 'SimpleStrategy', 'replication_factor': 2 };
+           WITH REPLICATION ={
+             'class': 'NetworkTopologyStrategy',
+             'us-east': 2 };
         """)
       session.execute(
         """
