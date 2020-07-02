@@ -5,6 +5,9 @@ import org.apache.spark.input.PortableDataStream
 import java.util.zip.ZipInputStream
 import java.io.BufferedReader
 import java.io.InputStreamReader
+
+import com.datastax.spark.connector.cql.CassandraConnectorConf
+import com.datastax.spark.connector.writer.WriteConf
 import org.apache.spark.rdd.RDD
 //Cassandra
 import com.datastax.spark.connector.cql.CassandraConnector
@@ -30,6 +33,8 @@ object Query3 {
       .set("spark.cassandra.connection.host", "192.168.123.10")
       .set("spark.cassandra.auth.username", "cassandra")
       .set("spark.cassandra.auth.password", "cassandra")
+      .set("spark.cassandra.output.consistency.level", "LOCAL_QUORUM")
+      .set("spark.cassandra.input.consistency.level", "LOCAL_ONE")
 
 
     // Initialisation du SparkSession qui est le point d'entrée vers Spark SQL (donne accès aux dataframes, aux RDD,
@@ -232,6 +237,7 @@ object Query3 {
      *************************/
     df_article_by_theme.write
       .cassandraFormat("article_by_theme", "gdelt")
+      .option(CassandraConnectorConf.)
       .save()
 
     df_article_by_person.write

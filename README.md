@@ -1,26 +1,47 @@
-# Table of Content
-- [GDELT PROJECT](#gdelt-project)
-  - [Goal of the project](#goal-of-the-project)
-  - [GDELT Database](https://www.gdeltproject.org/)
-    - [Event Table](#event-table)
-    - [Mention Table](#mention-table)
-    - [Global  Knowledge  Graph (GKG) Table](#global--knowledge--graph-gkg-table)
-- [How to run the project](#how-to-run-the-project)
-  - [Prerequisites](#prerequisites)
-  - [Creation of the cluster ](#creation-of-the-cluster)
-  - [Verification that the cluster is working correctly](#verification-that-the-cluster-is-working-correctly)
-  - [Connection to the database](#connection-to-the-database)
-    - [Quick test](#quick-test)
-
 # GDELT PROJECT
-
+<center>
+<img src="Presentation/gdeltgif.gif " width="400" height="400">
+</center>
 ## Goal of the project
 
 This Project was done in the context of the Post Master Degree in Big Data at Telecom Paris.
 
-The goal of the project was to model and deploy 
+The goal of the project was to retrieve data from the GDELT database, process it through four axis with Spark and upload it to a NoSql distributed database. The use of AWS was needed for calculation, and data storage.
 
-## [GDELT Database](https://www.gdeltproject.org/)
+Our database needed to be resilient to one node failure.
+
+The four axis that leaded our work were:
+
+1. Display the number of article for each tuple (day, country of the event, langage of the article)
+
+2. For a given country, display the events that happen there by number of mention (in descending order). Aggregation on day, month or year should be possible.
+
+3. For an input source (gkg.SourceCommonName), display themes, persons, locations, that are mentions in this article source. You will also display the number of article and the average tone for each theme/person and location. Aggregation on day, month and year should be possible.
+
+4. Draw the map of relation between countries based on the article's tone. Compute the number of article and the average tone. Enable filter on year, month or day and country.  
+We will introduce the different part of our work in the following parts.
+
+## Table of Content
+  - [GDELT Database](https://www.gdeltproject.org/)
+    - [Event Table](#event-table)
+    - [Mention Table](#mention-table)
+    - [Global  Knowledge  Graph (GKG) Table](#global--knowledge--graph-gkg-table)
+- [GDELT PROJECT](#gdelt-project)
+  - [Goal of the project](#goal-of-the-project)
+  - [Table of Content](#table-of-content)
+- [GDELT Database](#gdelt-database)
+    - [Event Table](#event-table)
+    - [Mention Table](#mention-table)
+    - [Global  Knowledge  Graph (GKG) Table](#global-knowledge-graph-gkg-table)
+- [Architecture of the project](#architecture-of-the-project)
+  - [Database Architecture](#database-architecture)
+  - [General Architecture](#general-architecture)
+- [How to run the project](#how-to-run-the-project)
+  - [Prerequisites](#prerequisites)
+  - [Creation of the cluster](#creation-of-the-cluster)
+  - [Verification that the cluster is working correctly](#verification-that-the-cluster-is-working-correctly)
+
+# [GDELT Database](https://www.gdeltproject.org/)
 
 Supported by Google Jigsaw, the GDELT Project monitors the world's broadcast, print, and web news from nearly every corner of every country in over 100 languages and identifies the people, locations, organizations, themes, sources, emotions, counts, quotes, images and events driving our global society every second of every day, creating a free open platform for computing on the entire world.
 
@@ -54,12 +75,36 @@ You can find more detail about the fields [here](http://data.gdeltproject.org/do
 
 A BigQuerry table is also accessible [here](http://data.gdeltproject.org/documentation/GDELT-Global_Knowledge_Graph_Codebook-V2.1.pdf)
 
+
+# Architecture of the project
+
+## Database Architecture
+We choosed to use a cassandra database for our work implemented in a docker environment. 
+Casddandra was a good fit for our project since it easily implemented the resilience part. Cassandra is a highly available database, since there is a huge amount of write and potentially read input/ output of data, cassandra is suitable. 
+
+The issue of cassandra are possible inconsistency in our data. But it is not an issue here in our application. Another issue is the lack of efficient aggregation request in cassandra. We will solve this by doing some post processing with spark after retrieving our data.
+
+We decided to implement our database in a docker environment to ease the deployment of the cluster. It enabled us to create an automated ansible playbook for deployment.
+
+As for table we are not going to develop the choice of partition and clustering key here but you can find the schema in `cassandra/schema` folder.
+
+## General Architecture
+
+<img src="Diagram/GdeltArchi.png">
+
+The processus we use to run our project is the following:
+
+1. Run a AWS EMR instance and retrieve the data (.zip format) from GDELT. 
+2. Store those data in a S3 bucket
+3. Retrieve the data and apply calculation with Spark (with an EMR)
+4. Optional: Save the final Dataframe table in parquet fromat in a S3 Bucket
+5. Create Keyspace and table in Cassandra 
+6. Load Dataframe in cassandra 
+7. Request the database 
+
 # How to run the project
 
-
-<div class="alert alert-warning" role="alert">
 **Warning**: Running this project could cost you money !
-</div>
 
 ```
 git clone git@github.com:vincrichard/GDELT_Project.git
